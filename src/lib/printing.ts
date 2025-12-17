@@ -91,82 +91,8 @@ export const silentPrintTicket = async (
       return true;
     }
 
-    // Fallback: Impressão local no Windows (quando sem servidor remoto)
-    const pt = new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(ticket.created_at));
-
-    const getPriorityLabel = (priority: string) => {
-      const labels: Record<string, string> = {
-        normal: 'Normal',
-        elderly: 'Idoso',
-        pregnant: 'Gestante',
-        disabled: 'PcD',
-      };
-      return labels[priority] || priority;
-    };
-
-    // Cria uma janela oculta para impressão
-    const printWindow = window.open('', '_blank', 'width=300,height=400');
-    if (!printWindow) {
-      console.error('Não foi possível abrir janela de impressão');
-      return false;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Impressão Senha</title>
-        <style>
-          @page {
-            size: 80mm auto;
-            margin: 0;
-          }
-          body {
-            font-family: 'Courier New', monospace;
-            text-align: center;
-            padding: 10px;
-            margin: 0;
-          }
-          .queue-name {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 10px;
-          }
-          .ticket-number {
-            font-size: 48px;
-            font-weight: bold;
-            margin: 20px 0;
-          }
-          .info {
-            font-size: 12px;
-            margin: 5px 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="queue-name">${queue.name}</div>
-        <div class="ticket-number">${ticket.display_number}</div>
-        <div class="info">${pt}</div>
-        <div class="info">${getPriorityLabel(ticket.priority)}</div>
-      </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    
-    // Aguarda o carregamento e imprime
-    setTimeout(() => {
-      printWindow.print();
-      setTimeout(() => {
-        printWindow.close();
-      }, 500);
-    }, 250);
-
-    return true;
+    console.warn('Servidor de impressão não configurado.');
+    return false;
   } catch (e) {
     console.error('silentPrintTicket error:', e);
     return false;
