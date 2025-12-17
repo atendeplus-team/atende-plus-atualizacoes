@@ -69,7 +69,29 @@ export const silentPrintTicket = async (
   queue: MinimalQueue
 ): Promise<boolean> => {
   try {
-    // TEMPORÁRIO: Impressão direto na impressora padrão do Windows
+    const settings = await getPrinterSettings();
+    
+    // Se houver servidor remoto configurado, envia para lá
+    if (settings?.print_server_url) {
+      const escpos = buildEscPos(ticket, queue);
+      const data = Array.from(escpos);
+      
+      const response = await fetch(`${settings.print_server_url}/print`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data }),
+      });
+
+      if (!response.ok) {
+        console.error('Erro ao imprimir no servidor remoto:', response.statusText);
+        return false;
+      }
+
+      console.log('Ticket impresso com sucesso no servidor remoto');
+      return true;
+    }
+
+    // Fallback: Impressão local no Windows (quando sem servidor remoto)
     const pt = new Intl.DateTimeFormat('pt-BR', {
       dateStyle: 'short',
       timeStyle: 'short',
