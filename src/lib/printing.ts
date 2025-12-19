@@ -73,22 +73,58 @@ export const silentPrintTicket = async (
     
     // Se houver servidor remoto configurado, envia para lá
     if (settings?.print_server_url) {
-      const escpos = buildEscPos(ticket, queue);
-      const data = Array.from(escpos);
-      
-      const response = await fetch(`${settings.print_server_url}/print`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data }),
-      });
-
-      if (!response.ok) {
-        console.error('Erro ao imprimir no servidor remoto:', response.statusText);
+      if (!settings.printer_ip) {
+        console.error('printer_ip não configurado nas company_settings');
         return false;
       }
 
-      console.log('Ticket impresso com sucesso no servidor remoto');
-      return true;
+      const printerPort = settings.printer_port || 9100;
+      const escpos = buildEscPos(ticket, queue);
+      const data = Array.from(escpos);
+      const payload = { data, printer_ip: settings.printer_ip, printer_port: printerPort };
+
+      // Se estiver em HTTPS e o print_server_url for HTTP, faz fallback para Edge Function (HTTPS)
+      if (
+        typeof window !== 'undefined' &&
+        window.location?.protocol === 'https:' &&
+        settings.print_server_url.startsWith('http:')
+      ) {
+        try {
+          const { data: fnData, error } = await (supabase as any).functions.invoke('print-ticket', {
+            body: payload,
+          });
+          if (error || !fnData?.success) {
+            console.error('Falha na função print-ticket:', error || fnData);
+            return false;
+          }
+          console.log('Ticket impresso via Edge Function (HTTPS)');
+          return true;
+        } catch (err) {
+          console.error('Erro ao chamar função print-ticket:', err);
+          return false;
+        }
+      }
+
+      // Caso normal: chama o servidor de impressão diretamente
+      try {
+        const response = await fetch(`${settings.print_server_url}/print`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erro ao imprimir no servidor remoto:', response.status, errorText);
+          return false;
+        }
+
+        console.log('Ticket impresso com sucesso no servidor remoto');
+        return true;
+      } catch (err) {
+        console.error('Erro de rede ao chamar servidor de impressão:', err);
+        return false;
+      }
     }
 
     // Fallback: Impressão local no Windows (quando sem servidor remoto)
